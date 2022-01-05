@@ -1,5 +1,4 @@
-from TrackletManager import TrackletManager
-import numpy as np
+from Modules.TrackletManager import TrackletManager
 
 
 # The tracking module is responsible for running the tracker

@@ -1,6 +1,5 @@
 import numpy as np
-
-from TrackletManager import TrackletManager
+from Modules.TrackletManager import TrackletManager
 from calcs import iou
 
 

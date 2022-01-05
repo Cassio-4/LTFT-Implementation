@@ -5,6 +5,7 @@ from Modules.TrackingModule import TrackingModule
 import cv2
 
 
+
 if __name__ == '__main__':
     # Ready everything needed
     all_frames_and_dets = ready_frames_and_detections(frames_folder="/home/cassio/dataset/Images/MOT17-09",

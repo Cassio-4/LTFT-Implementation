@@ -1,0 +1,13 @@
+name: LTFT-Implementation
+channels:
+  - conda-forge
+  - anaconda
+dependencies:
+  - python=3.7
+  - numpy
+  - scipy
+  - matplotlib
+  - opencv
+  - cython
+  - torchvision
+  - imutils

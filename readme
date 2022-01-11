@@ -1,0 +1,3 @@
+clone this git
+clone submodule
+create soft link with 3DDFA submodule: from project root type in terminal "ln -s 3DDFA DDFA"

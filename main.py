@@ -2,6 +2,7 @@ from utils import ready_frames_and_detections, image_resize, draw_boxes_and_ids
 from Modules.DataAssociationModule import DataAssociationModule
 from Modules.TrackletManager import TrackletManager
 from Modules.TrackingModule import TrackingModule
+from Modules.FBTR_Module import FBTR_Module
 import cv2
 
 
@@ -14,6 +15,7 @@ if __name__ == '__main__':
     manager = TrackletManager()
     tm = TrackingModule(tracklet_manager=manager)
     da = DataAssociationModule(t_max=20, lambda_iou=0.1, tracklet_manager=manager)
+    fbtr = FBTR_Module(mode='cpu')
 
     # main loop
     count = 0
@@ -27,12 +29,12 @@ if __name__ == '__main__':
             rects.append(det[1:])
         # ========== Tracking Pipeline ==========
         # First update the positions for the objects that haven't been previously matched
-        # thus are being tracked via specific tracking algorithm
+        # thus are being tracked via specific tracking algorithm (module1)
         tm.update_missing_objects_tracker(frame)
-        # Send current frame detections to Data Association module
+        # Send current frame detections to Data Association module (module2)
         da.update(rects, prev_frame=prev_frame, frame=frame)
-        # apply module 2
         # apply module 3
+        # TODO call fbtr module
         # apply module 4
         # Save a reference for the t-1 frame
         prev_frame = frame

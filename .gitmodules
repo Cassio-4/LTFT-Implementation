@@ -1,3 +1,6 @@
 [submodule "3DDFA"]
 	path = 3DDFA
 	url = https://github.com/cleardusk/3DDFA.git
+[submodule "arcface-pytorch"]
+	path = arcface-pytorch
+	url = https://github.com/ronghuaiyang/arcface-pytorch.git

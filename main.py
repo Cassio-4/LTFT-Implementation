@@ -1,8 +1,9 @@
 from utils import ready_frames_and_detections, image_resize, draw_boxes_and_ids
-from Modules.DataAssociationModule import DataAssociationModule
-from Modules.TrackletManager import TrackletManager
-from Modules.TrackingModule import TrackingModule
-from Modules.FBTR_Module import FBTR_Module
+from modules.fbtr import FaceBasedTrackletReconnectionModule
+from modules.data_association import DataAssociationModule
+from modules.TrackletManager import TrackletManager
+from modules.tracking import TrackingModule
+from config import config_dict
 import cv2
 
 
@@ -13,9 +14,10 @@ if __name__ == '__main__':
                                                                   "-scoxyXY")
     # Initialize Tracklet Manager
     manager = TrackletManager()
+    # Initialize every module
     tm = TrackingModule(tracklet_manager=manager)
-    da = DataAssociationModule(t_max=20, lambda_iou=0.1, tracklet_manager=manager)
-    fbtr = FBTR_Module(mode='cpu')
+    da = DataAssociationModule(config_dict["data_association_config"], tracklet_manager=manager)
+    fbtr = FaceBasedTrackletReconnectionModule(config_dict["3ddfa_config"], config_dict["arcface_config"])
 
     # main loop
     count = 0
@@ -25,16 +27,23 @@ if __name__ == '__main__':
         frame = cv2.imread(img_path)
         # Ready all detections on current frame
         rects = []
+        scores = []
         for det in detections:
             rects.append(det[1:])
+            scores.append(det[0])
         # ========== Tracking Pipeline ==========
         # First update the positions for the objects that haven't been previously matched
         # thus are being tracked via specific tracking algorithm (module1)
         tm.update_missing_objects_tracker(frame)
         # Send current frame detections to Data Association module (module2)
-        da.update(rects, prev_frame=prev_frame, frame=frame)
-        # apply module 3
-        # TODO call fbtr module
+        da.update(rects, scores, prev_frame=prev_frame, frame=frame)
+        # For every detection on frame T, check their quality, if enrollable or verifiable obtain feature vector
+        # and add it to the mean of features template of that tracklet (module3)
+        fbtr.calculate_quality_all_dets(manager, frame)
+        # ... for each tracklet Tk with an assigned detection Dk in the current frame, we retrieve tracklets Ti
+        # with i != k. (module3)
+        fbtr.compute_face_similarities(manager)
+
         # apply module 4
         # Save a reference for the t-1 frame
         prev_frame = frame

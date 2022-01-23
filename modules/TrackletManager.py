@@ -6,7 +6,7 @@ import cv2
 class Tracklet:
     tracker: cv2.TrackerKCF
 
-    def __init__(self, id, bbox):
+    def __init__(self, id, bbox, det_score=0.0):
         """
         Tracklet class
         :param id: object id
@@ -25,6 +25,14 @@ class Tracklet:
         self.face_detections = []
         # Tracker to interpolate position when detector fails
         self.tracker = None
+        # Mean template of features obtained from ArcFace's model, using faces with verifiable quality
+        self.verifiable_features_running_mean = None
+        self.verifiable_count = 0
+        # Mean template of features obtained from ArcFace's model, using faces with enrollable quality
+        self.enrollable_features_running_mean = None
+        self.enrollable_count = 0
+        # Last detection's score
+        self.latest_score = det_score
 
     def set_position(self, new_box):
         """
@@ -43,7 +51,6 @@ class Tracklet:
         self.tracker.init(frame, bbox)
 
     def update_tracker(self, frame):
-        # TODO tracklet 11 has none as tracker, when calling update, find frame find why just run debug and you will remember
         (success, box) = self.tracker.update(frame)
         if success:
             (x, y, w, h) = [int(v) for v in box]
@@ -54,6 +61,34 @@ class Tracklet:
             # do nothing
             pass
 
+    def update_mean_verifiable(self, new_features):
+        if self.verifiable_features_running_mean is None:
+            self.verifiable_features_running_mean = np.zeros(1024, dtype=np.float64)
+        self.verifiable_count += 1
+        n = float(self.verifiable_count)
+
+        # Calculate running mean
+        #for x_i in x:
+        # formula: m = m + (x_i - m) / n
+        new_features = np.subtract(new_features, self.verifiable_features_running_mean)
+        np.true_divide(new_features, n, out=new_features)
+        np.add(self.verifiable_features_running_mean, new_features, out=self.verifiable_features_running_mean,
+               dtype=np.float64)
+
+    def update_mean_enrollable(self, new_features):
+        if self.enrollable_features_running_mean is None:
+            self.enrollable_features_running_mean = np.zeros(1024, dtype=np.float64)
+        self.enrollable_count += 1
+        n = float(self.enrollable_count)
+
+        # Calculate running mean
+        #for x_i in x:
+        # formula: m = m + (x_i - m) / n
+        new_features = np.subtract(new_features, self.enrollable_features_running_mean)
+        np.true_divide(new_features, n, out=new_features)
+        np.add(self.enrollable_features_running_mean, new_features, out=self.enrollable_features_running_mean,
+               dtype=np.float64)
+
 
 class TrackletManager:
     active_tracklets: Dict[int, Tracklet]
@@ -63,10 +98,10 @@ class TrackletManager:
         self.next_id = 0
         self.inactive_tracklets = {}
 
-    def register(self, box):
+    def register(self, box, score):
         # when registering an object we use the next available object
         # ID to store the centroid
-        self.active_tracklets[self.next_id] = Tracklet(self.next_id, box)
+        self.active_tracklets[self.next_id] = Tracklet(self.next_id, box, score)
         self.next_id += 1
 
     def deregister(self, id):

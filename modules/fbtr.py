@@ -8,19 +8,22 @@ from DDFA.utils.inference import parse_roi_box_from_landmark, parse_roi_box_from
 from DDFA.utils.estimate_pose import parse_pose
 from DDFA.utils.ddfa import NormalizeGjz, ToTensorGjz
 from DDFA import mobilenet_v1
+from .arcface import Arcface
+from scipy.spatial.distance import cdist
 
 
-class FBTR_Module:
-    def __init__(self, recognition_threshold=0.5, mode='cpu', bbox_init='one',
-                 path_3ddfa_model="../3DDFA/models/phase1_wpdc_vdc.pth.tar"):
-        self.lambda_recognition = recognition_threshold
-        self.mode = mode
+class FaceBasedTrackletReconnectionModule:
+    def __init__(self, _3ddfa_dict, arcface_dict):
+        self.lambda_recognition = _3ddfa_dict["recognition_threshold"]
+        self.mode = _3ddfa_dict["mode"]
         self.STD_SIZE = 120
-        self.bbox_init = bbox_init
+        self.bbox_init = _3ddfa_dict["bbox_init"]
         print("Loading 3DDFA pose estimation model")
-        self.model_3ddfa = self.load_3ddfa_model(path_3ddfa_model)
+        self.model_3ddfa = self.load_3ddfa_model(_3ddfa_dict["path_3ddfa_model"])
         print("Done loading 3DDFA model.")
         self._transform = transforms.Compose([ToTensorGjz(), NormalizeGjz(mean=127.5, std=128)])
+        print("Loading ArcFace model")
+        self._arcface = Arcface(arcface_dict)
 
     def forward_3ddfa(self, face_images):
         """
@@ -69,6 +72,30 @@ class FBTR_Module:
 
             return pose, pts68
 
+    def calculate_quality_all_dets(self, tracklet_manager, frame):
+        """
+        Iterates through all active tracklets and qualifies its latest detection in one of three categories,
+        Enrollable, Verifiable or Discarded, then updates the feature mean template
+        :return: Nothing
+        """
+        for _, tcklet in tracklet_manager.active_tracklets.items():
+            if tcklet.active:
+                xmin, ymin, xmax, ymax = tcklet.position[0:4]
+                face_detection_crop = frame[ymin:ymax, xmin:xmax]
+                # Get quality indicator
+                quality_group = self.get_quality_indicator(face_detection_crop, tcklet.latest_score)
+                # If discarded
+                if quality_group == 2:
+                    continue
+                # If previous if didn't skip, then quality is verifiable or enrollable, calc features and save
+                feat = np.squeeze(self._arcface.get_single_feature(face_detection_crop))
+                # If verifiable
+                if quality_group == 1:
+                    tcklet.update_mean_verifiable(feat)
+                # Else, it is Enrollable
+                else:
+                    tcklet.update_mean_enrollable(feat)
+
     def get_quality_indicator(self, face_det_image, score):
         """
         Gets all quality metrics and returns which category the face detection belongs to.
@@ -80,16 +107,81 @@ class FBTR_Module:
         # Convert pose from radians to degrees
         degrees = [round(((rad * 180) / 3.141592653589793), 2) for rad in pose]
         # Get range of pose
-        in_25_range = [True if (-25.0 <= x <= 25.0) else False for x in degrees]
         in_60_range = [True if (-60.0 <= x <= 60.0) else False for x in degrees]
         # TODO add blur measure
-        # blur_score = get_blur_metric(face_det_image, pts)
-        if score > 0.95 and not (False in in_25_range):
-            return 0
-        elif score > 0.8 and not (False in in_60_range):
-            return 1
-        else:
-            return 2
+        # If detection score > 0.8 and pose range between +-60 degrees it could be enrollable or verifiable
+        if score > 0.8 and not (False in in_60_range):
+            # Get blur score, we only need to calculate it if there's a chance for the face to be either enrollable
+            # or verifiable
+            #blur_score = get_blur_metric(face_det_image, pts)
+            # Check if pose range between +- 25 degrees
+            in_25_range = [True if (-25.0 <= x <= 25.0) else False for x in degrees]
+            # Knowing the range of pose and blur measure, if enrollable
+            if score > 0.95 and not (False in in_25_range): # blur_score > 0.9 and
+                return 0
+            # If not enrollable, is it verifiable?
+            else:  # blur_score >= 0.75:
+                return 1
+        # If it didn't return previously then definitely is a discarded face
+        return 2
+
+    def compute_face_similarities(self, tracklet_manager):
+        active_tracklet_templates = []
+        active_tracklet_ids = []
+        inactive_tracklet_templates = []
+        inactive_tracklet_ids = []
+        for id, tracklet in tracklet_manager.active_tracklets.items():
+            # Then, for each tracklet Tk with an assigned detection Dk in the current frame
+            if tracklet.active:
+                if tracklet.verifiable_features_running_mean is None:
+                    continue
+                active_tracklet_ids.append(id)
+                # The mean of the verifiable face templates of Tk, VTk, is also computed.
+                active_tracklet_templates.append(tracklet.verifiable_features_running_mean)
+            else:
+                if tracklet.enrollable_features_running_mean is None:
+                    continue
+                inactive_tracklet_ids.append(id)
+                # ...we retrieve tracklets Ti with i != k. For each tracklet Ti, the mean of its enrollable
+                # face templates, ETi, is computed and taken as the tracklet reference template.
+                inactive_tracklet_templates.append(tracklet.enrollable_features_running_mean)
+        # Get all other Ti tracklets
+        for id, tracklet in tracklet_manager.inactive_tracklets.items():
+            if tracklet.enrollable_features_running_mean is None:
+                continue
+            inactive_tracklet_ids.append(id)
+            # ...we retrieve tracklets Ti with i != k. For each tracklet Ti, the mean of its enrollable
+            # face templates, ETi, is computed and taken as the tracklet reference template.
+            inactive_tracklet_templates.append(tracklet.enrollable_features_running_mean)
+
+        if (not active_tracklet_templates) or (not inactive_tracklet_templates):
+            # One of the lists is empty, there's nothing to calculate, quit method
+            return
+
+        x_k = np.array(active_tracklet_templates)
+        x_i = np.array(inactive_tracklet_templates)
+        distances = cdist(x_k, x_i, 'cosine')
+
+        # Check the distances and see if any beat the threshold of recognition
+        rows = distances.max(axis=1).argsort()[::-1]
+        cols = distances.argmax(axis=1)[rows]
+        used_rows = set()
+        used_cols = set()
+        # loop over the combination of the (row, column) index
+        # tuples
+        list_of_pairs = []
+        for (row, col) in zip(rows, cols):
+            # if we have already examined either the row or
+            # column value before, ignore it
+            if row in used_rows or col in used_cols or distances[row][col] <= self.lambda_recognition:
+                continue
+            else:
+                list_of_pairs.append((active_tracklet_ids[row], inactive_tracklet_ids[col]))
+            # indicate that we have examined each of the row and
+            # column indexes, respectively
+            used_rows.add(row)
+            used_cols.add(col)
+        return list_of_pairs
 
     def load_3ddfa_model(self, path):
         checkpoint_fp = path
@@ -112,6 +204,7 @@ class FBTR_Module:
 
 # Implementation of section 2.2 of https://gc2011.graphicon.ru/html/2014/papers/111-114.pdf
 def get_blur_metric(face_image, landmarks):
+    landmarks = get_7_landmarks(landmarks)
     # Get an even smaller bbox from the landmark points
     rect = cv2.boundingRect(landmarks)
     x, y, w, h = rect
@@ -123,7 +216,6 @@ def get_blur_metric(face_image, landmarks):
     cv2.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv2.LINE_AA)
     # Use mask to crop face using bitwise and operation
     final = cv2.bitwise_and(cropped, cropped, mask=mask)
-    cv2.imwrite("final.jpg", final)
     # Use Laplace filter to obtain contours and edges, the more sharp an image is the greater the response
     # from the laplace filter
     border = cv2.copyMakeBorder(final, top=1, bottom=1, left=1, right=1, borderType=cv2.BORDER_CONSTANT,
@@ -136,21 +228,19 @@ def get_blur_metric(face_image, landmarks):
     pass2 = cv2.filter2D(border, cv2.CV_32F, kernel2)
     pass1 = np.abs(pass1)
     pass2 = np.abs(pass2)
-    s = cv2.add(pass1, pass2, dtype=cv2.CV_32F)
-    s1 = cv2.add(pass1, pass2, dtype=cv2.CV_8U)
-    cv2.imwrite("custom_lap.jpg", s)
-    cv2.imwrite("pass1.jpg", pass1)
-    cv2.imwrite("pass2.jpg", pass2)
-    # lap = cv2.Laplacian(border, cv2.CV_32F)
-    cv2.imwrite("lap.jpg", s)
+    lap = cv2.add(pass1, pass2, dtype=cv2.CV_8U)
+    # Equalize histogram
+    lap = cv2.cvtColor(lap, cv2.COLOR_BGR2GRAY)
+    lap = cv2.equalizeHist(lap)
+    cv2.imwrite("eq_lap.jpg", lap)
     # The paper where this idea originated from says: "The image
     # sharpness score is calculated as the averaged Laplace
     # operator response by masked image".
     # blur_score = np.average(lap)
-    n_zeros = np.count_nonzero(s == 0)
-    pixels_sum = np.sum(s)
+    n_zeros = np.count_nonzero(lap == 0)
+    pixels_sum = np.sum(lap)
 
-    blur_custom = pixels_sum / (s.size - n_zeros)
+    blur_custom = pixels_sum / (lap.size - n_zeros)
     slope = (1.0 - 0.0) / (255 - 0)
     output = 0.0 + slope * (blur_custom - 0)
     blur_custom = round(output, 2)

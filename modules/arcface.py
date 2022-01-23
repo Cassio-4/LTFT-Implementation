@@ -8,19 +8,19 @@ from Arcface.models.resnet import resnet_face18
 
 
 class Arcface:
-    def __init__(self, model_path, mode="cpu", threshold=0.8, batch_size=10, use_se=False):
+    def __init__(self, arcface_dict, use_se=False):
         self.model = resnet_face18(use_se)
         self.model = DataParallel(self.model)
-        self.mode = mode
-        if mode == "cpu":
-            self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
+        self.mode = arcface_dict["mode"]
+        if self.mode == "cpu":
+            self.model.load_state_dict(torch.load(arcface_dict["model_path"], map_location="cpu"))
         else:
-            self.model.load_state_dict(torch.load(model_path))
+            self.model.load_state_dict(torch.load(arcface_dict["model_path"]))
         self.model.to(torch.device(self.mode))
         self.model.eval()
 
-        self.threshold = threshold
-        self.batch_size = batch_size
+        self.threshold = arcface_dict["threshold"]
+        self.batch_size = arcface_dict["batch_size"]
 
     def get_single_feature(self, image):
         """

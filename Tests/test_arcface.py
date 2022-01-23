@@ -1,4 +1,4 @@
-from Modules.arcface import Arcface, cosin_metric
+from modules.arcface import Arcface, cosin_metric
 import cv2
 import numpy as np
 
@@ -12,7 +12,9 @@ feat1 = arc.get_single_feature(pic1)
 feat2 = arc.get_single_feature(pic2)
 feat1 = np.squeeze(feat1)
 feat2 = np.squeeze(feat2)
+feat2 = np.reshape(feat2, 1024)
 feat = np.squeeze(feat)
+feat = np.reshape(feat, 1024)
 print(cosin_metric(feat1, feat2))
 print(cosin_metric(feat1, feat))
 print(cosin_metric(feat2, feat1))

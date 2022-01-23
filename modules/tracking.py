@@ -1,4 +1,4 @@
-from Modules.TrackletManager import TrackletManager
+from modules.TrackletManager import TrackletManager
 
 
 # The tracking module is responsible for running the tracker

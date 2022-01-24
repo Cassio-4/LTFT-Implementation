@@ -21,8 +21,6 @@ class Tracklet:
         self.disappeared_frames = 0
         # Boolean flag for if the tracklet is active or not
         self.active = True
-        # Faces detected that belong to this tracklet
-        self.face_detections = []
         # Tracker to interpolate position when detector fails
         self.tracker = None
         # Mean template of features obtained from ArcFace's model, using faces with verifiable quality
@@ -33,6 +31,9 @@ class Tracklet:
         self.enrollable_count = 0
         # Last detection's score
         self.latest_score = det_score
+        # Ordered dictionary of [int, array] where key is frame number and array is the tracklet position
+        # [xmin, ymin, xmax, ymax]
+        self.position_history = {}
 
     def set_position(self, new_box):
         """
@@ -56,7 +57,6 @@ class Tracklet:
             (x, y, w, h) = [int(v) for v in box]
             self.set_position(np.array((x, y, x+w, y+h), dtype=np.uint))
         else:
-            # TODO treat this exception if it ever occurs
             # The paper does not say what to do when kcf fails
             # do nothing
             pass
@@ -89,6 +89,10 @@ class Tracklet:
         np.add(self.enrollable_features_running_mean, new_features, out=self.enrollable_features_running_mean,
                dtype=np.float64)
 
+    def add_to_position_history(self, frame_num):
+        self.position_history[frame_num] = self.position.copy()
+
+
 
 class TrackletManager:
     active_tracklets: Dict[int, Tracklet]
@@ -109,3 +113,7 @@ class TrackletManager:
         # and move it to inactive tracklets dict
         popped_tracklet = self.active_tracklets.pop(id)
         self.inactive_tracklets[id] = popped_tracklet
+
+    def add_to_tracklets_histories(self, frame_num):
+        for _, tracklet in self.active_tracklets.items():
+            tracklet.add_to_position_history(frame_num)

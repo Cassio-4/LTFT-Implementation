@@ -43,19 +43,26 @@ if __name__ == '__main__':
         # ... for each tracklet Tk with an assigned detection Dk in the current frame, we retrieve tracklets Ti
         # with i != k. (module3)
         fbtr.compute_face_similarities(manager)
-
         # apply module 4
+        # TODO Module 4
+        # Tell tracklets to save their position on this frame
+        manager.add_to_tracklets_histories(count)
         # Save a reference for the t-1 frame
         prev_frame = frame
 
         # If we want to see things happening, render video. This should be off during
         # actual benchmark
-        if True:  # config.SHOW
+        if config_dict["show"]:  # config.SHOW
             draw_boxes_and_ids(manager.active_tracklets, frame)
             # Resize to fit on screen
             cv2.imshow("MOT17-09", image_resize(frame, height=600))
             _ = cv2.waitKey(1) & 0xFF
-
+        # count frame number
         count += 1
     # do a bit of cleanup
     cv2.destroyAllWindows()
+    # Write down results to txt file for metric measuring
+    if config_dict["write_txt"]:
+        # TODO write down results to txt
+        pass
+

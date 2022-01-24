@@ -1,22 +1,22 @@
 import numpy as np
-from Modules.TrackletManager import TrackletManager
+from modules.TrackletManager import TrackletManager
 from calcs import iou
 
 
 class DataAssociationModule:
     TM: TrackletManager
 
-    def __init__(self, t_max, lambda_iou=0.001, tracklet_manager=None):
+    def __init__(self, config_dict, tracklet_manager):
         """
         Data Association Module
-        :param t_max: max number of frames to keep a tracklet without detections alive
-        :param lambda_iou: IOU threshold to connect a detection to a previous bbox
+        :param config_dict: parameters dictionary from config file
+        :param tracklet_manager: a TrackletManager object, responsible for managing all tracklets
         """
-        self.maxDisappeared = t_max
-        self.lambda_iou = lambda_iou
+        self.maxDisappeared = config_dict["t_max"]
+        self.lambda_iou = config_dict["lambda_iou"]
         self.TM = tracklet_manager
 
-    def update(self, input_bboxes, prev_frame=None, frame=None):
+    def update(self, input_bboxes, input_scores, prev_frame=None, frame=None):
         # Check to see if the list of input bounding box rectangles is empty
         if len(input_bboxes) == 0:
             self.no_input(frame, prev_frame)
@@ -25,8 +25,8 @@ class DataAssociationModule:
         # If we are currently not tracking any objects take the input
         # boxes and register each one of them
         if len(self.TM.active_tracklets) == 0:
-            for input_box in input_bboxes:
-                self.TM.register(input_box)
+            for input_box, input_score in zip(input_bboxes, input_scores):
+                self.TM.register(input_box, input_score)
         # Otherwise, we are currently tracking objects, so we need to
         # try to match the input bboxes to the existing object bboxes
         else:
@@ -47,13 +47,13 @@ class DataAssociationModule:
                 if newly_lost:
                     objectIDs, active_positions_array, input_positions_array, D, rows, cols = self.calc_iou_matches(
                         input_bboxes)
-                    unused_rows, unused_cols = self.match_and_update(rows, cols, D, objectIDs, input_positions_array)
+                    unused_rows, unused_cols = self.match_and_update(rows, cols, D, objectIDs, input_positions_array, input_scores)
                 # If there were no newly_lost tracklets then there's no need to recalculate iou, just match them
                 else:
-                    unused_rows, unused_cols = self.match_and_update(rows, cols, D, objectIDs, input_positions_array)
+                    unused_rows, unused_cols = self.match_and_update(rows, cols, D, objectIDs, input_positions_array, input_scores)
             # If every tracklet has been matched to an input box, just match and update them
             else:
-                unused_rows, unused_cols = self.match_and_update(rows, cols, D, objectIDs, input_positions_array)
+                unused_rows, unused_cols = self.match_and_update(rows, cols, D, objectIDs, input_positions_array, input_scores)
             # in the event that the number of object bboxes is
             # equal or greater than the number of input bboxes
             # we need to check and see if some of these objects have
@@ -74,7 +74,7 @@ class DataAssociationModule:
             # than the number of existing objects we need to
             # register each new input detection as a new tracklet
             for col in unused_cols:
-                self.TM.register(input_positions_array[col])
+                self.TM.register(input_positions_array[col], input_scores[col])
         # return the set of trackable objects
         return self.TM.active_tracklets
 
@@ -166,7 +166,7 @@ class DataAssociationModule:
                 continue
         return newly_lost
 
-    def match_and_update(self, rows, cols, D, obj_ids, input_positions_array):
+    def match_and_update(self, rows, cols, D, obj_ids, input_positions_array, input_scores):
         # in order to determine if we need to update, register,
         # or deregister an object we need to keep track of which
         # of the rows and column indexes we have already examined
@@ -185,6 +185,7 @@ class DataAssociationModule:
             # counter
             tracklet_id = obj_ids[row]
             self.TM.active_tracklets[tracklet_id].set_position(input_positions_array[col])
+            self.TM.active_tracklets[tracklet_id].latest_score = input_scores[col]
             self.TM.active_tracklets[tracklet_id].disappeared_frames = 0
             self.TM.active_tracklets[tracklet_id].active = True
             # indicate that we have examined each of the row and

@@ -12,11 +12,12 @@ _3ddfa_config = {
 }
 data_association_config = {
     "t_max": 20,
-    "lambda_iou": 0.1
+    "lambda_iou": 0.25
 }
 config_dict = {
     "arcface_config": arcface_config,
     "3ddfa_config": _3ddfa_config,
     "data_association_config": data_association_config,
-    "show": True
+    "show": True,
+    "write_txt": False
 }

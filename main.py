@@ -3,6 +3,7 @@ from modules.fbtr import FaceBasedTrackletReconnectionModule
 from modules.data_association import DataAssociationModule
 from modules.TrackletManager import TrackletManager
 from modules.tracking import TrackingModule
+from modules.correction import CorrectionModule
 from config import config_dict
 import cv2
 
@@ -18,7 +19,7 @@ if __name__ == '__main__':
     tm = TrackingModule(tracklet_manager=manager)
     da = DataAssociationModule(config_dict["data_association_config"], tracklet_manager=manager)
     fbtr = FaceBasedTrackletReconnectionModule(config_dict["3ddfa_config"], config_dict["arcface_config"])
-
+    cm = CorrectionModule(manager)
     # main loop
     count = 0
     prev_frame = None
@@ -42,9 +43,9 @@ if __name__ == '__main__':
         fbtr.calculate_quality_all_dets(manager, frame)
         # ... for each tracklet Tk with an assigned detection Dk in the current frame, we retrieve tracklets Ti
         # with i != k. (module3)
-        fbtr.compute_face_similarities(manager)
+        list_of_pairs = fbtr.compute_face_similarities(manager)
         # apply module 4
-        # TODO Module 4
+        cm.correct_pairs(list_of_pairs)
         # Tell tracklets to save their position on this frame
         manager.add_to_tracklets_histories(count)
         # Save a reference for the t-1 frame

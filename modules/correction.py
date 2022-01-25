@@ -1,5 +1,5 @@
 from typing import Tuple
-from TrackletManager import TrackletManager
+from .TrackletManager import TrackletManager
 
 
 class CorrectionModule:
@@ -13,6 +13,9 @@ class CorrectionModule:
         Fuses the pairs of tracklets (Tk, Ti) into one tracklet
         :type list_of_pairs: Tuple[int, int]
         """
+        if list_of_pairs is None:
+            # No pairs to connect
+            return
         for pair in list_of_pairs:
             tk_id, ti_id = pair
             try:

@@ -126,3 +126,53 @@ def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
 
     # return the resized image
     return resized
+
+
+def write_results_mot_format(video_name, active_tracklets_dict, inactive_tracklets_dict):
+    # Build a dictionary that maps information to frames
+    # [int:frame number, list of tuples[(id, xmin, ymin, xmax, ymax),...]]
+    frames_dict = {}
+    iterate_history_dicts(frames_dict, active_tracklets_dict)
+    iterate_history_dicts(frames_dict, inactive_tracklets_dict)
+    line_count = 0
+    frame_count = 0
+    with open("./data/results/{}.txt".format(video_name), 'w') as f:
+        while frames_dict:
+            try:
+                frame_info = frames_dict.pop(frame_count)
+            except KeyError:
+                # This just means that the frame #frame_count has no annotations if every info
+                # has been extracted from the dictionary the while will stop when false
+                frame_count += 1
+                continue
+            # frame_info is a list of tuples, each tuple an annotation (id, xmin, ymin, xmax, ymax)
+            for tup in frame_info:
+                t_id = int(tup[0])
+                xmin = int(tup[1])
+                ymin = int(tup[2])
+                xmax = int(tup[3])
+                ymax = int(tup[4])
+                bb_width = int(xmax - xmin)
+                bb_height = int(ymax - ymin)
+                # <frame>, <id>, <bb_left>, <bb_top>, <bb_width>, <bb_height>, <conf>, <x>, <y>, <z>
+                line = "{}, {}, {}, {}, {}, {}, -1, -1, -1, -1".format(frame_count, t_id, xmin, ymin, bb_width,
+                                                                       bb_height)
+                # if first line then we write without the \n at the beginning
+                if line_count == 0:
+                    f.write(line)
+                else:
+                    f.write("\n{}".format(line))
+                line_count += 1
+            frame_count += 1
+
+
+def iterate_history_dicts(frames_dict, history_dict):
+    for tracklet in history_dict.values():
+        t_id = tracklet.id
+        for frame_num, position in tracklet.position_history.items():
+            # If this frame doesnt exist in the dictionary, instantiate an empty list for it
+            if not (frame_num in frames_dict):
+                frames_dict[frame_num] = []
+            #           (id,   xmin,        ymin,        xmax,        ymax)
+            pos_tuple = (t_id, position[0], position[1], position[2], position[3])
+            frames_dict[frame_num].append(pos_tuple)

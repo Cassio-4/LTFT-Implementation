@@ -1,6 +1,6 @@
 clone this git
 clone submodules
 create soft link with 3DDFA submodule: from project root type in terminal "ln -s 3DDFA DDFA"
-create soft link with 3DDFA submodule: from project root type in terminal "ln -s ./arcface-pytorch Arcface"
+create soft link with arcface submodule: from project root type in terminal "ln -s ./arcface-pytorch Arcface"
 erase all imports on the file arcface-pytorch/models/__init__.py
 Download arcface model and put it on this repo root folder or change its path on the config file if prefered

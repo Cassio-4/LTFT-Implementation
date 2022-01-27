@@ -18,6 +18,6 @@ config_dict = {
     "arcface_config": arcface_config,
     "3ddfa_config": _3ddfa_config,
     "data_association_config": data_association_config,
-    "show": True,
-    "write_txt": False
+    "show": False,
+    "write_txt": True
 }

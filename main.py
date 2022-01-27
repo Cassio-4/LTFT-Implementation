@@ -1,4 +1,4 @@
-from utils import ready_frames_and_detections, image_resize, draw_boxes_and_ids
+from utils import ready_frames_and_detections, image_resize, draw_boxes_and_ids, write_results_mot_format
 from modules.fbtr import FaceBasedTrackletReconnectionModule
 from modules.data_association import DataAssociationModule
 from modules.TrackletManager import TrackletManager
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     fbtr = FaceBasedTrackletReconnectionModule(config_dict["3ddfa_config"], config_dict["arcface_config"])
     cm = CorrectionModule(manager)
     # main loop
-    count = 0
+    count = 1
     prev_frame = None
     for img_path, detections in all_frames_and_dets:
         # Read frame
@@ -64,6 +64,4 @@ if __name__ == '__main__':
     cv2.destroyAllWindows()
     # Write down results to txt file for metric measuring
     if config_dict["write_txt"]:
-        # TODO write down results to txt
-        pass
-
+        write_results_mot_format("MOT17-09", manager.active_tracklets, manager.inactive_tracklets)

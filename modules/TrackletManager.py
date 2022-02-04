@@ -47,7 +47,9 @@ class Tracklet:
         self.position[3] = new_box[3]
 
     def start_tracker(self, frame):
-        self.tracker = cv2.TrackerKCF_create()
+        p = cv2.TrackerKCF_Params()
+        p.detect_thresh = 0.01
+        self.tracker = cv2.TrackerKCF_create(p)
         bbox = (self.position[0], self.position[1], self.position[2]-self.position[0], self.position[3]-self.position[1])
         self.tracker.init(frame, bbox)
 

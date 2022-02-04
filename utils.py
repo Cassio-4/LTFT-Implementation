@@ -16,12 +16,12 @@ def get_all_frames_path(frames_folder="/home/cassio/dataset/Images/MOT17-09"):
     return img_paths
 
 
-def get_all_detections_paths(dets_folder=""):
+def get_all_detections_paths(dets_folder, video_name):
     dets_paths = []
     # Grab all sequence related frame paths
     detections_path = dets_folder + "/*.txt"
     for filename in glob.glob(detections_path):
-        if "MOT17-09" in filename:
+        if video_name.split("_")[0].lower() in filename.lower():
             dets_paths.append(filename)
     # Sort all paths
     dets_paths = sorted(dets_paths, key=lambda i: int(os.path.splitext(os.path.basename(i))[0].split("_")[1]))
@@ -68,6 +68,19 @@ def draw_boxes_and_ids(objects, frame):
         pos = tklet.position
         frame = cv2.rectangle(frame, (pos[0], pos[1]), (pos[2], pos[3]), color, 2)
     return frame
+
+
+def get_detections_as_dictionary(path_to_files, video_name, thresh=0.75):
+    dets_paths = get_all_detections_paths(path_to_files, video_name)
+    count = 0
+    if "MOT17" in video_name:
+        count = 1
+    det_dict = {}
+    for f in dets_paths:
+        dets = get_framedets_asarray(f, thresh)
+        det_dict[count] = dets
+        count += 1
+    return det_dict
 
 
 def ready_frames_and_detections(frames_folder="/home/cassio/dataset/Images/MOT17-09", dets_folder="", thresh=0.75):

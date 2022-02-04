@@ -18,6 +18,13 @@ config_dict = {
     "arcface_config": arcface_config,
     "3ddfa_config": _3ddfa_config,
     "data_association_config": data_association_config,
-    "show": False,
-    "write_txt": True
+    "show": True,
+    "write_txt": False,
+    "videos_folder": "/home/cassio/CrowdedDataset/VideoDataset/",
+    "videos": ["MOT17-09_video.avi", "MOT17-01_video.avi", "MOT17-04_video.avi", "Street_CutVideo.avi",
+               "Sidewalk_CutVideo.avi", "Bengal_CutVideo.avi", "Terminal1_CutVideo.avi", "Terminal2_CutVideo.avi",
+               "Terminal3_CutVideo.avi", "Terminal4_CutVideo.avi", "Shibuya_CutVideo.avi", "Choke1_CutVideo.avi",
+               "Choke2_CutVideo.avi"],
+    "dets_folder": "/home/cassio/CrowdedDataset/DetectionFiles/Yolov5/yolov5s/Yolov5s-nothresh-clean-scoxyXY"
 }
+

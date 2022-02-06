@@ -73,7 +73,8 @@ if __name__ == '__main__':
                 cv2.imshow(video, image_resize(frame, height=600))
                 _ = cv2.waitKey(1) & 0xFF
         # Cleanup at the end of sequence
-        cv2.destroyAllWindows()
+        if config_dict["show"]:
+            cv2.destroyAllWindows()
         # Write down results to txt file for metric measuring
         if config_dict["write_txt"]:
             write_results_mot_format(video.split("_")[0], manager.active_tracklets, manager.inactive_tracklets)

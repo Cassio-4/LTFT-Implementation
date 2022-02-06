@@ -24,6 +24,7 @@ class FaceBasedTrackletReconnectionModule:
         self._transform = transforms.Compose([ToTensorGjz(), NormalizeGjz(mean=127.5, std=128)])
         print("Loading ArcFace model")
         self._arcface = Arcface(arcface_dict)
+        print("Done loading Arcface model.")
 
     def forward_3ddfa(self, face_images):
         """

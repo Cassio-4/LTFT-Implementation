@@ -72,14 +72,12 @@ def draw_boxes_and_ids(objects, frame):
 
 def get_detections_as_dictionary(path_to_files, video_name, thresh=0.75):
     dets_paths = get_all_detections_paths(path_to_files, video_name)
-    count = 0
-    if "MOT17" in video_name:
-        count = 1
     det_dict = {}
     for f in dets_paths:
+        number = f.split("/")[-1].split("_")[-1].split(".")[0]
+        number = int(number)
         dets = get_framedets_asarray(f, thresh)
-        det_dict[count] = dets
-        count += 1
+        det_dict[number] = dets
     return det_dict
 
 

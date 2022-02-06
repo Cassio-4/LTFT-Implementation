@@ -38,6 +38,7 @@ if __name__ == '__main__':
             dets = detections.pop(count, None)
             if dets is None:
                 print("video {} -> frame {} info doesnt exist".format(video, count))
+                dets = []
             for det in dets:
                 rects.append(det[1:])
                 scores.append(det[0])

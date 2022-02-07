@@ -58,12 +58,6 @@ if __name__ == '__main__':
             cm.correct_pairs(list_of_pairs)
             # Tell tracklets to save their position on this frame
             manager.add_to_tracklets_histories(count)
-            # Save a reference for the t-1 frame
-            prev_frame = frame
-            # Get next frame
-            success, frame = vc.read()
-            # count frame number
-            count += 1
 
             # If we want to see things happening, render video. This should be off during
             # actual benchmark
@@ -72,6 +66,13 @@ if __name__ == '__main__':
                 # Resize to fit on screen
                 cv2.imshow(video, image_resize(frame, height=600))
                 _ = cv2.waitKey(1) & 0xFF
+
+            # Save a reference for the t-1 frame
+            prev_frame = frame
+            # Get next frame
+            success, frame = vc.read()
+            # count frame number
+            count += 1
         # Cleanup at the end of sequence
         if config_dict["show"]:
             cv2.destroyAllWindows()

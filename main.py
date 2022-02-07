@@ -9,18 +9,23 @@ import cv2
 
 
 if __name__ == '__main__':
-    # For each video, reinitialize everything
+    fbtr = FaceBasedTrackletReconnectionModule(config_dict["3ddfa_config"], config_dict["arcface_config"])
+
     for video in config_dict["videos"]:
         #all_frames_and_dets = ready_frames_and_detections(frames_folder="/home/cassio/dataset/Images/MOT17-09",
         #                                                  dets_folder=config_dict["dets_folder"])
         # For expediency, I am reading the detections from detection files instead of actually running the detector
         detections = get_detections_as_dictionary(config_dict["dets_folder"], video, 0.75)
-        # Initialize Tracklet Manager
-        manager = TrackletManager()
+        # For each video, reinitialize everything
+        manager = None
+        tm = None
+        da = None
+        cm = None
         # Initialize every module
+        manager = TrackletManager()
+        print("Manager starting id = {}".format(manager.next_id))
         tm = TrackingModule(tracklet_manager=manager)
         da = DataAssociationModule(config_dict["data_association_config"], tracklet_manager=manager)
-        fbtr = FaceBasedTrackletReconnectionModule(config_dict["3ddfa_config"], config_dict["arcface_config"])
         cm = CorrectionModule(manager)
         # Initialize frame counter, MOT17 videos start on frame 1
         count = 0

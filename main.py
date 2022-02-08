@@ -16,14 +16,8 @@ if __name__ == '__main__':
         #                                                  dets_folder=config_dict["dets_folder"])
         # For expediency, I am reading the detections from detection files instead of actually running the detector
         detections = get_detections_as_dictionary(config_dict["dets_folder"], video, 0.75)
-        # For each video, reinitialize everything
-        manager = None
-        tm = None
-        da = None
-        cm = None
         # Initialize every module
         manager = TrackletManager()
-        print("Manager starting id = {}".format(manager.next_id))
         tm = TrackingModule(tracklet_manager=manager)
         da = DataAssociationModule(config_dict["data_association_config"], tracklet_manager=manager)
         cm = CorrectionModule(manager)

@@ -95,7 +95,6 @@ class Tracklet:
         self.position_history[frame_num] = self.position.copy()
 
 
-
 class TrackletManager:
     active_tracklets: Dict[int, Tracklet]
 

@@ -13,18 +13,21 @@ from scipy.spatial.distance import cdist
 
 
 class FaceBasedTrackletReconnectionModule:
-    def __init__(self, _3ddfa_dict, arcface_dict):
-        self.lambda_recognition = _3ddfa_dict["recognition_threshold"]
-        self.mode = _3ddfa_dict["mode"]
-        self.STD_SIZE = 120
-        self.bbox_init = _3ddfa_dict["bbox_init"]
+    def __init__(self, fbtr_dict, arcface_dict):
         print("Loading 3DDFA pose estimation model")
-        self.model_3ddfa = self.load_3ddfa_model(_3ddfa_dict["path_3ddfa_model"])
-        print("Done loading 3DDFA model.")
         self._transform = transforms.Compose([ToTensorGjz(), NormalizeGjz(mean=127.5, std=128)])
+        self.mode = fbtr_dict["3ddfa_mode"]
+        self.STD_SIZE = 120
+        self.bbox_init = fbtr_dict["3ddfa_bbox_init"]
+        self.model_3ddfa = self.load_3ddfa_model(fbtr_dict["3ddfa_model_path"])
+        print("Done loading 3DDFA model.")
         print("Loading ArcFace model")
         self._arcface = Arcface(arcface_dict)
         print("Done loading Arcface model.")
+        self.lambda_recognition = fbtr_dict["recognition_threshold"]
+        self.blur_higher_thresh, self.blur_lower_thresh = fbtr_dict["blur_thresholds"]
+        self._e = fbtr_dict["e_margin"]
+        self._C = fbtr_dict["C"]
 
     def forward_3ddfa(self, face_images):
         """
@@ -104,31 +107,35 @@ class FaceBasedTrackletReconnectionModule:
         :param score: the confidence score provided by the detector
         :return: 0 if enrollable, 1 if verifiable or 2 if discarded
         """
-        pose, pts = self.forward_3ddfa([face_det_image])
+        # Mr. Barquero said all face images were resized to same size before sharpness measure and quality assessment
+        resized = cv2.resize(face_det_image, (120, 120), cv2.INTER_LINEAR)
+        pose, pts = self.forward_3ddfa([resized])
         # Convert pose from radians to degrees
         degrees = [round(((rad * 180) / 3.141592653589793), 2) for rad in pose]
         # Get range of pose
         in_60_range = [True if (-60.0 <= x <= 60.0) else False for x in degrees]
-        # TODO add blur measure
         # If detection score > 0.8 and pose range between +-60 degrees it could be enrollable or verifiable
         if score > 0.8 and not (False in in_60_range):
             # Get blur score, we only need to calculate it if there's a chance for the face to be either enrollable
             # or verifiable
-            #blur_score = get_blur_metric(face_det_image, pts)
+            blur_score = get_blur_metric(face_det_image, pts)
+            #print("blur_score = {}".format(blur_score))
             # Check if pose range between +- 25 degrees
             in_25_range = [True if (-25.0 <= x <= 25.0) else False for x in degrees]
             # Knowing the range of pose and blur measure, if enrollable
-            if score > 0.95 and not (False in in_25_range): # blur_score > 0.9 and
+            if score >= 0.95 and not (False in in_25_range) and blur_score >= self.blur_higher_thresh:
                 return 0
             # If not enrollable, is it verifiable?
-            else:  # blur_score >= 0.75:
+            elif blur_score >= self.blur_lower_thresh:
                 return 1
         # If it didn't return previously then definitely is a discarded face
         return 2
 
     def compute_face_similarities(self, tracklet_manager):
+        # {Tk} set
         active_tracklet_templates = []
         active_tracklet_ids = []
+        # {Ti} belonging to T \ {Tk}
         inactive_tracklet_templates = []
         inactive_tracklet_ids = []
         for id, tracklet in tracklet_manager.active_tracklets.items():
@@ -162,7 +169,8 @@ class FaceBasedTrackletReconnectionModule:
         x_k = np.array(active_tracklet_templates)
         x_i = np.array(inactive_tracklet_templates)
         distances = cdist(x_k, x_i, 'cosine')
-
+        # Turn distance into similarity
+        distances = 1 - distances
         # Check the distances and see if any beat the threshold of recognition
         rows = distances.max(axis=1).argsort()[::-1]
         cols = distances.argmax(axis=1)[rows]
@@ -172,16 +180,31 @@ class FaceBasedTrackletReconnectionModule:
         # tuples
         list_of_pairs = []
         for (row, col) in zip(rows, cols):
-            # if we have already examined either the row or
-            # column value before, ignore it
-            if row in used_rows or col in used_cols or distances[row][col] <= self.lambda_recognition:
+            # if we have already examined either the row or column value;
+            # or if the similarity measure is lower than the threshold lambdaFBTR;
+            # or if there are less than C other values to get average, we skip
+            if row in used_rows or col in used_cols or distances[row][col] <= self.lambda_recognition \
+                    or len(distances[row]) < self._C+1:
                 continue
-            else:
+            # That highest similarity is above the average of the next C-highest ones, by a margin 1/e:
+            # Get C next highest ones
+            C_highest_average = 0.0
+            sorted_indexes = distances[row].argsort()[::-1][:self._C + 1]
+            for idx in sorted_indexes[1:]:
+                C_highest_average += distances[row][idx]
+            # Get average of C highest values
+            C_highest_average = C_highest_average / self._C
+            # multiply it by 1/e
+            C_highest_average = C_highest_average * (1 / self._e)
+            # Finally if the highest similarity is above the average of the C_highest_average then we connect them
+            if distances[row][col] >= C_highest_average:
                 list_of_pairs.append((active_tracklet_ids[row], inactive_tracklet_ids[col]))
-            # indicate that we have examined each of the row and
-            # column indexes, respectively
-            used_rows.add(row)
-            used_cols.add(col)
+                # indicate that we have examined each of the row and
+                # column indexes, respectively
+                used_rows.add(row)
+                used_cols.add(col)
+            # Else, just continue the loop
+        # Return list of connected pairs with the highest similarity, above the C-highest average
         return list_of_pairs
 
     def load_3ddfa_model(self, path):
@@ -205,47 +228,34 @@ class FaceBasedTrackletReconnectionModule:
 
 # Implementation of section 2.2 of https://gc2011.graphicon.ru/html/2014/papers/111-114.pdf
 def get_blur_metric(face_image, landmarks):
-    landmarks = get_7_landmarks(landmarks)
-    # Get an even smaller bbox from the landmark points
-    rect = cv2.boundingRect(landmarks)
-    x, y, w, h = rect
-    # Crop the face from the image using the landmark points bbox
-    cropped = face_image[y:y + h, x:x + w].copy()
-    # Build a mask to remove background information
-    pts = landmarks - landmarks.min(axis=0)
-    mask = np.zeros(cropped.shape[:2], np.uint8)
-    cv2.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv2.LINE_AA)
-    # Use mask to crop face using bitwise and operation
-    final = cv2.bitwise_and(cropped, cropped, mask=mask)
+    # Convert image to grayscale single channel
+    image_ = cv2.cvtColor(face_image, cv2.COLOR_BGR2GRAY)
+    # Convert image to double and in range [0.0, 1.0], Matlab just divides an uint8 image by 255
+    image_ = np.divide(image_, 255.0, dtype=np.single)
+
+    # --- Operate Laplace on whole image ---
     # Use Laplace filter to obtain contours and edges, the more sharp an image is the greater the response
     # from the laplace filter
-    border = cv2.copyMakeBorder(final, top=1, bottom=1, left=1, right=1, borderType=cv2.BORDER_CONSTANT,
-                                value=[0, 0, 0])
-    kernel1 = np.array([[1, -2, 1]])
-    kernel2 = np.array([[1],
-                        [-2],
-                        [1]])
-    pass1 = cv2.filter2D(border, cv2.CV_32F, kernel1)
-    pass2 = cv2.filter2D(border, cv2.CV_32F, kernel2)
-    pass1 = np.abs(pass1)
-    pass2 = np.abs(pass2)
-    lap = cv2.add(pass1, pass2, dtype=cv2.CV_8U)
-    # Equalize histogram
-    lap = cv2.cvtColor(lap, cv2.COLOR_BGR2GRAY)
-    lap = cv2.equalizeHist(lap)
-    cv2.imwrite("eq_lap.jpg", lap)
-    # The paper where this idea originated from says: "The image
-    # sharpness score is calculated as the averaged Laplace
-    # operator response by masked image".
-    # blur_score = np.average(lap)
-    n_zeros = np.count_nonzero(lap == 0)
-    pixels_sum = np.sum(lap)
+    filter1 = np.array([[1, -2, 1]])
+    filter2 = np.array([[1], [-2], [1]])
+    pass1 = cv2.filter2D(image_, cv2.CV_32F, filter1, borderType=cv2.BORDER_CONSTANT)
+    pass2 = cv2.filter2D(image_, cv2.CV_32F, filter2, borderType=cv2.BORDER_CONSTANT)
+    lap = cv2.add(np.abs(pass1), np.abs(pass2), dtype=cv2.CV_32F)
+    # --- end of laplace ---
 
-    blur_custom = pixels_sum / (lap.size - n_zeros)
-    slope = (1.0 - 0.0) / (255 - 0)
-    output = 0.0 + slope * (blur_custom - 0)
-    blur_custom = round(output, 2)
-    return blur_custom
+    # Build a mask to remove background information
+    landmarks = get_7_landmarks(landmarks)
+    mask = np.zeros(lap.shape[:2], np.uint8)
+    mask = cv2.fillConvexPoly(mask, landmarks, 1, cv2.LINE_8)
+
+    # The paper says: "The image sharpness score is calculated as the averaged Laplace
+    # operator response by masked image".
+    values = lap[np.where(mask != 0)]
+    if values.size != 0:
+        blur_score = float(np.mean(values))
+        return round(blur_score, 4)
+    else:
+        return 0.0
 
 
 def get_7_landmarks(pts68):

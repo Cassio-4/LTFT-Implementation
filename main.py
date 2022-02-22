@@ -9,13 +9,11 @@ import cv2
 
 
 if __name__ == '__main__':
-    fbtr = FaceBasedTrackletReconnectionModule(config_dict["3ddfa_config"], config_dict["arcface_config"])
+    fbtr = FaceBasedTrackletReconnectionModule(config_dict["fbtr_config"], config_dict["arcface_config"])
 
     for video in config_dict["videos"]:
-        #all_frames_and_dets = ready_frames_and_detections(frames_folder="/home/cassio/dataset/Images/MOT17-09",
-        #                                                  dets_folder=config_dict["dets_folder"])
         # For expediency, I am reading the detections from detection files instead of actually running the detector
-        detections = get_detections_as_dictionary(config_dict["dets_folder"], video, 0.75)
+        detections = get_detections_as_dictionary(config_dict["dets_folder"], video, config_dict["detection_threshold"])
         # Initialize every module
         manager = TrackletManager()
         tm = TrackingModule(tracklet_manager=manager)
@@ -36,6 +34,7 @@ if __name__ == '__main__':
             scores = []
             dets = detections.pop(count, None)
             if dets is None:
+                # If the model didn't detect any faces on this frame just print this, no problem tho
                 print("video {} -> frame {} info doesnt exist".format(video, count))
                 dets = []
             for det in dets:

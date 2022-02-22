@@ -19,7 +19,7 @@ class Arcface:
         self.model.to(torch.device(self.mode))
         self.model.eval()
 
-        self.threshold = arcface_dict["threshold"]
+        #self.threshold = arcface_dict["threshold"]
         self.batch_size = arcface_dict["batch_size"]
 
     def get_single_feature(self, image):

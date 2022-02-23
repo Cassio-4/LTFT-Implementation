@@ -147,7 +147,7 @@ def write_results_mot_format(video_name, active_tracklets_dict, inactive_trackle
     iterate_history_dicts(frames_dict, inactive_tracklets_dict)
     line_count = 0
     frame_count = 0
-    with open("./data/results/{}.txt".format(video_name), 'w') as f:
+    with open("./data/results/{}_mot.txt".format(video_name), 'w') as f:
         while frames_dict:
             try:
                 frame_info = frames_dict.pop(frame_count)

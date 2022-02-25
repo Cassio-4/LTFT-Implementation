@@ -1,4 +1,4 @@
-from utils import image_resize, draw_boxes_and_ids, write_results_mot_format, get_detections_as_dictionary
+from utils import image_resize, draw_boxes_and_ids, write_results_mot_format, get_detections_as_dictionary, count_verifiable_enrollable
 from modules.fbtr import FaceBasedTrackletReconnectionModule
 from modules.data_association import DataAssociationModule
 from modules.TrackletManager import TrackletManager
@@ -77,6 +77,7 @@ if __name__ == '__main__':
         # Write down results to txt file for metric measuring
         if config_dict["write_txt"]:
             write_results_mot_format(video.split("_")[0], manager.active_tracklets, manager.inactive_tracklets)
+            count_verifiable_enrollable(manager.active_tracklets, manager.inactive_tracklets)
         # Write simple terminal ouput for peace of mind
         print("End of {}'s test".format(video))
         print("{} Frames processed".format(count))

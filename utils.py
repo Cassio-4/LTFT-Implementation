@@ -187,3 +187,16 @@ def iterate_history_dicts(frames_dict, history_dict):
             #           (id,   xmin,        ymin,        xmax,        ymax)
             pos_tuple = (t_id, position[0], position[1], position[2], position[3])
             frames_dict[frame_num].append(pos_tuple)
+
+
+def count_verifiable_enrollable(active_tracklets_dict, inactive_tracklets_dict):
+    verif_total = 0
+    enrol_total = 0
+    for t in active_tracklets_dict.values():
+        verif_total += t.verifiable_count
+        enrol_total += t.enrollable_count
+    for i in inactive_tracklets_dict.values():
+        verif_total += i.verifiable_count
+        enrol_total += i.enrollable_count
+    with open('quality_history.txt', 'a') as f:
+        f.write("verifiable_total = {}, enrollable_total = {}\n".format(verif_total, enrol_total))

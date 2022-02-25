@@ -28,6 +28,7 @@ class FaceBasedTrackletReconnectionModule:
         self.blur_higher_thresh, self.blur_lower_thresh = fbtr_dict["blur_thresholds"]
         self._e = fbtr_dict["e_margin"]
         self._C = fbtr_dict["C"]
+        self.det_score_higher, self.det_score_lower = fbtr_dict["fbtr_det_score"]
 
     def forward_3ddfa(self, face_images):
         """
@@ -115,7 +116,7 @@ class FaceBasedTrackletReconnectionModule:
         # Get range of pose
         in_60_range = [True if (-60.0 <= x <= 60.0) else False for x in degrees]
         # If detection score > 0.8 and pose range between +-60 degrees it could be enrollable or verifiable
-        if score > 0.8 and not (False in in_60_range):
+        if score > self.det_score_lower and not (False in in_60_range):
             # Get blur score, we only need to calculate it if there's a chance for the face to be either enrollable
             # or verifiable
             blur_score = get_blur_metric(face_det_image, pts)
@@ -123,7 +124,7 @@ class FaceBasedTrackletReconnectionModule:
             # Check if pose range between +- 25 degrees
             in_25_range = [True if (-25.0 <= x <= 25.0) else False for x in degrees]
             # Knowing the range of pose and blur measure, if enrollable
-            if score >= 0.95 and not (False in in_25_range) and blur_score >= self.blur_higher_thresh:
+            if score >= self.det_score_higher and not (False in in_25_range) and blur_score >= self.blur_higher_thresh:
                 return 0
             # If not enrollable, is it verifiable?
             elif blur_score >= self.blur_lower_thresh:

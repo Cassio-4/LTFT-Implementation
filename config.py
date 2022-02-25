@@ -10,7 +10,8 @@ fbtr_config = {
     "recognition_threshold": 0.5,
     "blur_thresholds": (0.9, 0.75),  # Upper and lower blur thresholds respectively
     "e_margin": 0.8,
-    "C": 6
+    "C": 6,
+    "fbtr_det_score": (0.95, 0.8)
 }
 data_association_config = {
     "t_max": 20,

@@ -1,6 +1,7 @@
 import numpy as np
 from modules.TrackletManager import TrackletManager
 from calcs import iou
+from scipy.optimize import linear_sum_assignment
 
 
 class DataAssociationModule:
@@ -118,11 +119,12 @@ class DataAssociationModule:
         # indexes based on their maximum values so that the row
         # with the maximum value is at the *front* of the index
         # list
-        rows = D.max(axis=1).argsort()[::-1]
+        rows, cols = linear_sum_assignment(D, maximize=True)
+        #rows = D.max(axis=1).argsort()[::-1]
         # next, we perform a similar process on the columns by
         # finding the largest value in each column and then
         # sorting using the previously computed row index list
-        cols = D.argmax(axis=1)[rows]
+        #cols = D.argmax(axis=1)[rows]
         return objectIDs, active_positions_array, input_positions_array, D, rows, cols
 
     def check_possible_matches(self, rows, cols, iou_matrix):

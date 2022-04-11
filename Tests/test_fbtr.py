@@ -4,6 +4,13 @@ from config import config_dict
 import numpy as np
 
 
+def lowpass_blur(face_image, img_name):
+    lowpass = cv2.blur(face_image, (3, 3))
+    absolute = np.abs(face_image - lowpass)
+    avg = np.average(absolute)
+    print("{}'s score is -> {}".format(img_name, avg))
+
+
 def get_blur_metric(face_image, landmarks, img_name):
     # Convert image to grayscale single channel
     image_ = cv2.cvtColor(face_image, cv2.COLOR_BGR2GRAY)
@@ -17,13 +24,12 @@ def get_blur_metric(face_image, landmarks, img_name):
     pass1 = cv2.filter2D(image_, cv2.CV_32F, filter1, borderType=cv2.BORDER_CONSTANT)
     pass2 = cv2.filter2D(image_, cv2.CV_32F, filter2, borderType=cv2.BORDER_CONSTANT)
     lap = cv2.add(np.abs(pass1), np.abs(pass2), dtype=cv2.CV_32F)
-    print("{} sum -> {}".format(img_name, round(float(np.sum(lap)), 4)))
+    #print("{} sum -> {}".format(img_name, round(float(np.sum(lap)), 4)))
     # --- end of laplace ---
 
     # --- get mask to remove background ---
     landmarks = get_7_landmarks(landmarks)
     mask = np.zeros(lap.shape[:2], np.uint8)
-    #cv2.drawContours(mask, [landmarks], -1, (255, 255, 255), -1, cv2.LINE_8)
     mask = cv2.fillConvexPoly(mask, landmarks, 1, cv2.LINE_8)
 
     # The paper says: "The image sharpness score is calculated as the averaged Laplace
@@ -45,7 +51,7 @@ test_dets_and_scores = [["choke_test0.jpg", "Lenna_0.jpg", "Henry-Cavill_0.jpg",
                         [0.9, 0.87, 0.9, 0.85, 0.85, 0.83, 0.71, 0.85, 0.86, 0.86, 0.89, 0.86, 0.86, 0.86,
                          0.85, 0.85, 0.87, 0.86, 0.85, 0.84, 0.88, 0.87, 0.86, 0.84, 0.95]]
 
-fbtr = FaceBasedTrackletReconnectionModule(config_dict["3ddfa_config"], config_dict["arcface_config"])
+fbtr = FaceBasedTrackletReconnectionModule(config_dict["fbtr_config"], config_dict["arcface_config"])
 """
 img = cv2.imread(pics_folder + "choke_test0.jpg")
 pose, pts = fbtr.forward_3ddfa([img])
@@ -63,9 +69,13 @@ for pic_name, score in zip(test_dets_and_scores[0], test_dets_and_scores[1]):
     img = cv2.imread(pics_folder + pic_name)
     #face_quality_group = fbtr.get_quality_indicator(img, score)
     #print("{}'s quality is -> {}".format(pic_name, face_quality_group))
-    #img = cv2.resize(img, (120, 120), cv2.INTER_LINEAR)
+    img = cv2.resize(img, (120, 120), cv2.INTER_LINEAR)
     pose, pts = fbtr.forward_3ddfa([img])
+    degrees = [round(((rad * 180) / 3.141592653589793), 2) for rad in pose]
     blur_score = get_blur_metric(img, pts, pic_name)
+    #print("img: {} has degrees = {}".format(pic_name, degrees))
     print("img: {} has blur score = {}".format(pic_name, blur_score))
+    lowpass_blur(img, pic_name)
 pass
+#lowpass_blur(cv2.resize(cv2.imread(pics_folder+"bengal_228_0_yolo.jpg"), (120, 120)), "bengal_yolo")
 

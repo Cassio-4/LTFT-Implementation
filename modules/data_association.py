@@ -110,16 +110,17 @@ class DataAssociationModule:
 
         # compute the distance between each pair of object
         # bounding boxes and input bounding boxes, respectively
-        # -- our goal will be to match an input bbox to an
+        # -- our goal will be to match an input bbox to an existing object's bounding box
+        # where the largest the IOU is, the closer they are to each other
         D = iou(active_positions_array[:, None], input_positions_array[None])
         # in order to perform this matching we must (1) find the
-        # smallest value in each row and then (2) sort the row
-        # indexes based on their minimum values so that the row
-        # with the smallest value is at the *front* of the index
+        # largest value in each row and then (2) sort the row
+        # indexes based on their maximum values so that the row
+        # with the maximum value is at the *front* of the index
         # list
         rows = D.max(axis=1).argsort()[::-1]
         # next, we perform a similar process on the columns by
-        # finding the smallest value in each column and then
+        # finding the largest value in each column and then
         # sorting using the previously computed row index list
         cols = D.argmax(axis=1)[rows]
         return objectIDs, active_positions_array, input_positions_array, D, rows, cols

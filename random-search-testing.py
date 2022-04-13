@@ -15,7 +15,12 @@ import cv2
 # Number of random tests to be run
 Ntests = 100
 # Set of tuples to keep track of which parameters combinations have already been run
-Combinations_set = set()
+file_exists = os.path.exists("./combinations_set.pickle")
+if file_exists:
+    with open("./combinations_set.pickle", "rb") as input_file:
+        Combinations_set = pickle.load(input_file)
+else:
+    Combinations_set = set()
 
 
 def generate_random():
@@ -144,6 +149,6 @@ if __name__ == '__main__':
     # At the end of every test, dump the set as a pickle object in case we want to start from here (checkpoint)
     # Store data (serialize)
     print("Dumping parameters set on combinations_set.pickle file.")
-    with open('combinatons_set.pickle', 'wb') as handle:
+    with open('combinations_set.pickle', 'wb') as handle:
         pickle.dump(Combinations_set, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print("combinations_set.pickle dumped.")

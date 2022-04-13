@@ -139,7 +139,7 @@ def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
     return resized
 
 
-def write_results_mot_format(video_name, active_tracklets_dict, inactive_tracklets_dict):
+def write_results_mot_format(video_name, active_tracklets_dict, inactive_tracklets_dict, path=None):
     # Build a dictionary that maps information to frames
     # [int:frame number, list of tuples[(id, xmin, ymin, xmax, ymax),...]]
     frames_dict = {}
@@ -147,7 +147,11 @@ def write_results_mot_format(video_name, active_tracklets_dict, inactive_trackle
     iterate_history_dicts(frames_dict, inactive_tracklets_dict)
     line_count = 0
     frame_count = 0
-    with open("./data/results/{}_mot.txt".format(video_name), 'w') as f:
+    if path is None:
+        file_path = "./data/results/{}_mot.txt".format(video_name)
+    else:
+        file_path = "{}/{}.txt".format(path, video_name)
+    with open(file_path, 'w') as f:
         while frames_dict:
             try:
                 frame_info = frames_dict.pop(frame_count)
@@ -198,5 +202,8 @@ def count_verifiable_enrollable(active_tracklets_dict, inactive_tracklets_dict):
     for i in inactive_tracklets_dict.values():
         verif_total += i.verifiable_count
         enrol_total += i.enrollable_count
+    """
     with open('quality_history.txt', 'a') as f:
         f.write("verifiable_total = {}, enrollable_total = {}\n".format(verif_total, enrol_total))
+    """
+    return verif_total, enrol_total

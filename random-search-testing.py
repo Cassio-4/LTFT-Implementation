@@ -142,8 +142,8 @@ if __name__ == '__main__':
         with open('parameters history.csv', 'a') as p:
             upper_blur, lower_blur = config_dict["fbtr_config"]["blur_thresholds"]
             upper_det, lower_det = config_dict["fbtr_config"]["fbtr_det_score"]
-            p.write("{};{};{};{};{};{};{}\n".format(test_number, config_dict["detection_threshold"], upper_blur,
-                                                    lower_blur, upper_det, lower_det, config_dict["data_association_config"]["t_max"]))
+            p.write("{};{};{};{};{};{};{}\n".format(test_number, config_dict["detection_threshold"], upper_det, lower_det,
+                                                    upper_blur, lower_blur, config_dict["data_association_config"]["t_max"]))
         print("End of test {}.".format(test_number))
 
     # At the end of every test, dump the set as a pickle object in case we want to start from here (checkpoint)

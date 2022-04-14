@@ -15,10 +15,11 @@ import cv2
 # Number of random tests to be run
 Ntests = 100
 # Set of tuples to keep track of which parameters combinations have already been run
-file_exists = os.path.exists("./combinations_set.pickle")
+file_exists = os.path.exists("./combinations_set0-24.pickle")
 if file_exists:
-    with open("./combinations_set.pickle", "rb") as input_file:
+    with open("./combinations_set0-24.pickle", "rb") as input_file:
         Combinations_set = pickle.load(input_file)
+    print("Loaded combinations file.")
 else:
     Combinations_set = set()
 

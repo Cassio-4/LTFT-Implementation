@@ -150,7 +150,7 @@ def write_results_mot_format(video_name, active_tracklets_dict, inactive_trackle
     if path is None:
         file_path = "./data/results/{}_mot.txt".format(video_name)
     else:
-        file_path = "{}/{}.txt".format(path, video_name)
+        file_path = "{}/{}_mot.txt".format(path, video_name)
     with open(file_path, 'w') as f:
         while frames_dict:
             try:

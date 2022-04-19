@@ -140,7 +140,7 @@ if __name__ == '__main__':
         # At the end of this test, save total verifiables, total enrollables and test parameters in csv (;) files
         with open('quality_history.csv', 'a') as f:
             f.write("{};{};{}\n".format(test_number, sum_of_verifiables, sum_of_enrollables))
-        with open('parameters history.csv', 'a') as p:
+        with open('parameters_history.csv', 'a') as p:
             upper_blur, lower_blur = config_dict["fbtr_config"]["blur_thresholds"]
             upper_det, lower_det = config_dict["fbtr_config"]["fbtr_det_score"]
             p.write("{};{};{};{};{};{};{}\n".format(test_number, config_dict["detection_threshold"], upper_det, lower_det,

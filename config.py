@@ -11,10 +11,11 @@ fbtr_config = {
     "blur_thresholds": (0.08, 0.04),  # Upper and lower blur thresholds respectively
     "e_margin": 0.8,
     "C": 6,
-    "fbtr_det_score": (0.85, 0.73)
+    "fbtr_det_score": (0.85, 0.73),   # Upper and lower detection scores thresholds respectively
+    "fbtr_resolution_scores": (64, 32)  # Upper and lower resolution score thresholds respectively
 }
 data_association_config = {
-    "t_max": 20,
+    "t_max": 5,
     "lambda_iou": 0.25
 }
 config_dict = {
@@ -22,8 +23,8 @@ config_dict = {
     "fbtr_config": fbtr_config,
     "data_association_config": data_association_config,
     "detection_threshold": 0.68,
-    "show": True,
-    "write_txt": False,
+    "show": False,
+    "write_txt": True,
     "videos_folder": "/home/cassio/CrowdedDataset/VideoDataset/",
     "videos": ["MOT17-09_video.avi", "MOT17-01_video.avi", "MOT17-04_video.avi", "Street_CutVideo.avi",
                "Sidewalk_CutVideo.avi", "Bengal_CutVideo.avi", "Terminal1_CutVideo.avi", "Terminal2_CutVideo.avi",

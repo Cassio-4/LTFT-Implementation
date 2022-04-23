@@ -29,6 +29,7 @@ class FaceBasedTrackletReconnectionModule:
         self._e = fbtr_dict["e_margin"]
         self._C = fbtr_dict["C"]
         self.det_score_higher, self.det_score_lower = fbtr_dict["fbtr_det_score"]
+        self.enrollable_resolution, self.verifiable_resolution = fbtr_dict["fbtr_resolution_scores"]
 
     def forward_3ddfa(self, face_images):
         """
@@ -108,6 +109,10 @@ class FaceBasedTrackletReconnectionModule:
         :param score: the confidence score provided by the detector
         :return: 0 if enrollable, 1 if verifiable or 2 if discarded
         """
+        # Get detection resolution before applying resize
+        height, width, _ = face_det_image.shape
+        # Compare resolutions to thresholds
+        verifiable_res = True if height >= self.verifiable_resolution or width >= self.verifiable_resolution else False
         # Mr. Barquero said all face images were resized to same size before sharpness measure and quality assessment
         resized = cv2.resize(face_det_image, (120, 120), cv2.INTER_LINEAR)
         pose, pts = self.forward_3ddfa([resized])
@@ -115,16 +120,18 @@ class FaceBasedTrackletReconnectionModule:
         degrees = [round(((rad * 180) / 3.141592653589793), 2) for rad in pose]
         # Get range of pose
         in_60_range = [True if (-60.0 <= x <= 60.0) else False for x in degrees]
-        # If detection score > 0.8 and pose range between +-60 degrees it could be enrollable or verifiable
-        if score > self.det_score_lower and not (False in in_60_range):
+        # If detection score > 0.8, pose range between +-60 degrees and resolution > 32 it could be enrollable or verifiable
+        if score > self.det_score_lower and not (False in in_60_range) and verifiable_res:
             # Get blur score, we only need to calculate it if there's a chance for the face to be either enrollable
             # or verifiable
-            blur_score = get_blur_metric(face_det_image, pts)
-            #print("blur_score = {}".format(blur_score))
+            # CHANGE MADE: Using lowpass filter to measure blur instead
+            blur_score = lowpass_blur(face_det_image)
             # Check if pose range between +- 25 degrees
             in_25_range = [True if (-25.0 <= x <= 25.0) else False for x in degrees]
+            # Check if resolution in enrollable range
+            enrollable_res = True if height >= self.enrollable_resolution or width >= self.enrollable_resolution else False
             # Knowing the range of pose and blur measure, if enrollable
-            if score >= self.det_score_higher and not (False in in_25_range) and blur_score >= self.blur_higher_thresh:
+            if score >= self.det_score_higher and not (False in in_25_range) and blur_score >= self.blur_higher_thresh and enrollable_res:
                 return 0
             # If not enrollable, is it verifiable?
             elif blur_score >= self.blur_lower_thresh:
@@ -264,3 +271,10 @@ def get_7_landmarks(pts68):
                     [pts68[0][45], pts68[1][45]], [pts68[0][54], pts68[1][54]], [pts68[0][57], pts68[1][57]],
                     [pts68[0][48], pts68[1][48]]], dtype=np.uint)
     return pts
+
+
+def lowpass_blur(face_image):
+    lowpass = cv2.blur(face_image, (3, 3))
+    absolute = np.abs(face_image - lowpass)
+    avg = np.average(absolute)
+    return avg

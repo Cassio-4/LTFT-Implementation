@@ -15,9 +15,9 @@ import cv2
 # Number of random tests to be run
 Ntests = 100
 # Set of tuples to keep track of which parameters combinations have already been run
-file_exists = os.path.exists("./combinations_set0-24.pickle")
+file_exists = os.path.exists("combinations_set.pickle")
 if file_exists:
-    with open("./combinations_set0-24.pickle", "rb") as input_file:
+    with open("combinations_set.pickle", "rb") as input_file:
         Combinations_set = pickle.load(input_file)
     print("Loaded combinations file.")
 else:
@@ -36,21 +36,27 @@ def generate_random():
         # generate lower detection threshold
         lower_detection_threshold = round(random.uniform(detection_threshold, upper_detection_threshold-0.01), 2)
         # generate upper blur threshold
-        upper_blur_threshold = round(random.uniform(0.05, 3.0), 2)
+        upper_blur_threshold = round(random.uniform(60, 100), 2)
         # generate lower blur threshold
-        lower_blur_threshold = round(random.uniform(0.01, upper_blur_threshold-0.01), 2)
+        lower_blur_threshold = round(random.uniform(30, upper_blur_threshold-20), 2)
+        # generate upper resolution threshold
+        upper_resolution_threshold = random.randint(32, 120)
+        # generate lower resolution threshold
+        lower_resolution_threshold = random.randint(24, upper_resolution_threshold - 8)
         # Create a tuple with these parameters
         param_tuple = (detection_threshold, upper_detection_threshold, lower_detection_threshold, upper_blur_threshold,
-                       lower_blur_threshold)
+                       lower_blur_threshold, upper_resolution_threshold, lower_resolution_threshold)
         if param_tuple in Combinations_set:
-            print("Combination {} {} {} {} {} already executed.".format(param_tuple[0], param_tuple[1], param_tuple[2],
-                                                                        param_tuple[3], param_tuple[4]))
+            print("Combination {} {} {} {} {} {} {} already executed.".format(param_tuple[0], param_tuple[1],
+                                                                              param_tuple[2], param_tuple[3],
+                                                                              param_tuple[4], param_tuple[5], param_tuple[6]))
         else:
             Combinations_set.add(param_tuple)
             unique = True
     # Replace parameters on configuration dictionary (there's probably a smarter way to do this :p)
     config_dict["fbtr_config"]["blur_thresholds"] = (upper_blur_threshold, lower_blur_threshold)
     config_dict["fbtr_config"]["fbtr_det_score"] = (upper_detection_threshold, lower_detection_threshold)
+    config_dict["fbtr_config"]["fbtr_resolution_scores"] = (upper_resolution_threshold, lower_resolution_threshold)
     config_dict["detection_threshold"] = detection_threshold
 
 
@@ -59,7 +65,7 @@ if __name__ == '__main__':
         # Generate random parameters
         generate_random()
         # Create directory to save this test's files
-        results_dir = "./data/results/yolov5s-random-{}".format(test_number)
+        results_dir = "./data/results/yolov5s-fqa-random-{}".format(test_number)
         os.mkdir(results_dir)
 
         # Start test
@@ -143,8 +149,10 @@ if __name__ == '__main__':
         with open('parameters_history.csv', 'a') as p:
             upper_blur, lower_blur = config_dict["fbtr_config"]["blur_thresholds"]
             upper_det, lower_det = config_dict["fbtr_config"]["fbtr_det_score"]
-            p.write("{};{};{};{};{};{};{}\n".format(test_number, config_dict["detection_threshold"], upper_det, lower_det,
-                                                    upper_blur, lower_blur, config_dict["data_association_config"]["t_max"]))
+            upper_res, lower_res = config_dict["fbtr_config"]["fbtr_resolution_scores"]
+            p.write("{};{};{};{};{};{};{};{};{}\n".format(test_number, config_dict["detection_threshold"], upper_det,
+                                                    lower_det, upper_blur, lower_blur,
+                                                    config_dict["data_association_config"]["t_max"], upper_res, lower_res))
         print("End of test {}.".format(test_number))
 
     # At the end of every test, dump the set as a pickle object in case we want to start from here (checkpoint)
